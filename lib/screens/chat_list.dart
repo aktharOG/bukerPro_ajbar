@@ -20,6 +20,8 @@ class _ChatListState extends State<ChatList> {
   final ChatlistController chatListController = Get.put(ChatlistController());
   final LoginController authController = Get.put(LoginController());
 
+  ScrollController scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -27,9 +29,20 @@ class _ChatListState extends State<ChatList> {
       // Fetch the chat list when the page loads
       int organizationId = 3; // Example organization ID
       String userToken = authController.userToken.value;
-    
+
       chatListController.loadChatList(organizationId, userToken);
+      scrollController.addListener(() {
+        _scrollListener(organizationId, userToken);
+      });
     });
+  }
+
+  void _scrollListener(organizationId, userToken) {
+    if (scrollController.offset > scrollController.position.maxScrollExtent) {
+      if (!chatListController.isLoading.value) {
+        chatListController.loadChatListMore(organizationId, userToken);
+      }
+    }
   }
 
   @override
@@ -85,38 +98,58 @@ class _ChatListState extends State<ChatList> {
               }
 
               // If data is available, display the chat list
-              return ListView.builder(
-                itemCount:
-                    chatListController.chatList.value.data!.data!.length,
-                itemBuilder: (context, index) {
-                  final chat = chatListController.chatList.value.data!.data![index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        maxRadius: 30,
-                        backgroundColor: Colors.grey,
-                        child: Text(chat.id.toString()), // Display chat ID or avatar
-                      ),
-                      title: Text(
-                        chat.fullName ?? 'Unknown', // Display chat full name
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      subtitle: Text(
-                        chat.phone ?? 'No phone number', // Display phone number
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      trailing: Text(
-                        DateFormat('hh:mm a').format(chat.latestChatCreatedAt!), // Display latest chat time
-                        style: const TextStyle(fontSize: 15),
-                      ),
-                      onTap: () {
-                        // Navigate to the ChatPage when tapped
-                        Get.to(() => ChatPage(selectedUsers: chat));
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      controller: scrollController,
+                      itemCount:
+                          chatListController.chatList.value.data!.data!.length,
+                      itemBuilder: (context, index) {
+                        final chat = chatListController
+                            .chatList.value.data!.data![index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              maxRadius: 30,
+                              backgroundColor: Colors.grey,
+                              child: Text(chat.id
+                                  .toString()), // Display chat ID or avatar
+                            ),
+                            title: Text(
+                              chat.fullName ??
+                                  'Unknown', // Display chat full name
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            subtitle: Text(
+                              chat.phone ??
+                                  'No phone number', // Display phone number
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            trailing: chat.latestChatCreatedAt == null
+                                ? const SizedBox()
+                                : Text(
+                                    DateFormat('hh:mm a').format(chat
+                                        .latestChatCreatedAt!), // Display latest chat time
+                                    style: const TextStyle(fontSize: 15),
+                                  ),
+                            onTap: () {
+                              // Navigate to the ChatPage when tapped
+                              Get.to(() => ChatPage(selectedUsers: chat));
+                            },
+                          ),
+                        );
                       },
                     ),
-                  );
-                },
+                  ),
+                  if (chatListController.isLoading.value)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 30),
+                      child: CircularProgressIndicator(),
+                    )
+                ],
               );
             }),
           ),

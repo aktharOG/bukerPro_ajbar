@@ -6,48 +6,68 @@ import '../models/chat_list_Model.dart';
 import '../services/api_services.dart'; // Adjust path
 
 class ChatlistController extends GetxController {
-  // Observable variables for the chat list, loading state, and error message
-
-
-  // initstate 
-
-
-
   var chatList = ChatListModel().obs;
   var isLoading = false.obs;
   var errorMessage = ''.obs;
+  var currentPage = 1; // Track the current page
+  var hasMoreData = true.obs; // Flag to check if more data is available
+  final int itemsPerPage = 20; // Number of items to load per page
 
   final ApiServices _apiService = ApiServices();
 
-
-
-
-  // Method to load the chat list
+  // Method to load the first page of chat list
   Future<void> loadChatList(int organizationId, String userToken) async {
-    log("body item : organizationId = $organizationId userToken = $userToken");
+    currentPage = 1; // Reset page number for a fresh load
+    hasMoreData.value = true; // Reset the flag
+    chatList.value = ChatListModel(); // Clear previous data
+    await _fetchChatList(organizationId, userToken, currentPage,false);
+  }
+
+  // Method to load more chat list items (pagination)
+  Future<void> loadChatListMore(int organizationId, String userToken) async {
+    if (!hasMoreData.value || isLoading.value) return; // Stop if no more data or already loading
+    currentPage++; // Increment page for the next set of data
+    await _fetchChatList(organizationId, userToken, currentPage,true);
+  }
+
+  // Helper method to fetch chat list data
+  Future<void> _fetchChatList(int organizationId, String userToken, int page,hideLoading) async {
+    log("Fetching page $page for organizationId = $organizationId with userToken = $userToken");
+
     try {
-      // Set loading state to true
-      isLoading.value = true;
+      if(!hideLoading){
+isLoading.value = true;
+      }
+      
       errorMessage.value = ''; // Clear previous errors
 
       // Fetch the chat list from the API
       ChatListModel? fetchedChatList =
-          await _apiService.fetchChatList(organizationId, userToken);
+          await _apiService.fetchChatList(organizationId, userToken, page);
 
-      if (fetchedChatList != null) {
-        // Update the chat list if data is successfully fetched
-        chatList.value = fetchedChatList;
+      if (fetchedChatList != null && fetchedChatList.data != null) {
+        if (fetchedChatList.data!.data!.isEmpty) {
+          hasMoreData.value = false; // No more data to load
+        } else {
+          // Append new data to the existing list
+          if (page == 1) {
+            chatList.value = fetchedChatList; // For the first page, replace the list
+          } else {
+            // Append new data for subsequent pages
+            chatList.update((val) {
+              val?.data?.data?.addAll(fetchedChatList.data!.data!);
+            });
+          }
+        }
       } else {
-        // Set an error message if something went wrong
         errorMessage.value = 'Failed to fetch chat list.';
+        hasMoreData.value = false; // Stop further pagination on error
       }
     } catch (e) {
-      // Catch any exceptions and set the error message
       errorMessage.value = 'Error occurred: $e';
+      hasMoreData.value = false;
     } finally {
-      // Set loading state to false
       isLoading.value = false;
     }
-
   }
 }

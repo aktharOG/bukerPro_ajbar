@@ -53,7 +53,7 @@ class ApiServices {
 
   // Fetch chat list method
   Future<ChatListModel?> fetchChatList(
-      int organizationId, String userToken) async {
+      int organizationId, String userToken,page) async {
     try {
       const String chatApi = Apis.chats;
       final response = await http.post(
@@ -65,6 +65,38 @@ class ApiServices {
         body: jsonEncode({
           'organization_id': organizationId,
           "user_token": userToken,
+          "page":page
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print(response.body);
+        return chatListModelFromJson(response.body);
+      } else {
+        print("Failed to fetch chat list: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("Error during API call: $e");
+      return null;
+    }
+  }
+
+
+  Future<ChatListModel?> fetchChatListMore(
+      int organizationId, String userToken,int page) async {
+    try {
+      const String chatApi = Apis.chats;
+      final response = await http.post(
+        Uri.parse(chatApi),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${keys.key}', // Use stored token
+        },
+        body: jsonEncode({
+          'organization_id': organizationId,
+          "user_token": userToken,
+          "page":page
         }),
       );
 
